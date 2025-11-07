@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "framer-motion": "^12.23.24",
+    "patch-package": "^8.0.1",
+    "postinstall-postinstall": "^2.1.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
