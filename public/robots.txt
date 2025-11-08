@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://lol-randomizer.vercel.app/sitemap.xml
