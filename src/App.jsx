@@ -59,13 +59,34 @@ export default function App() {
   }, []);
 
   const getRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
+  const statOptions = [
+    { id: "5001", name: "Tốc độ đánh", icon: "perk-images/StatMods/StatModsAttackSpeedIcon.png", longDesc: "+10% Tốc độ đánh" },
+    { id: "5002", name: "Tốc độ di chuyển", icon: "perk-images/StatMods/StatModsMovementSpeedIcon.png", longDesc: "+2.5% Tốc độ di chuyển" },
+    { id: "5003", name: "Kháng hiệu ứng và Kháng làm chậm", icon: "perk-images/StatMods/StatModsTenacityIcon.png", longDesc: "+15% Kháng hiệu ứng và Kháng làm chậm" },
+    { id: "5004", name: "Máu", icon: "perk-images/StatMods/StatModsHealthScalingIcon.png", longDesc: "+65 Máu" },
+    { id: "5005", name: "Máu tăng tiến", icon: "perk-images/StatMods/StatModsHealthPlusIcon.png", longDesc: "+10-180 Máu (theo cấp)" },
+    { id: "5006", name: "Máu tăng tiến", icon: "perk-images/StatMods/StatModsHealthPlusIcon.png", longDesc: "+10-180 Máu (theo cấp)" },
+    { id: "5007", name: "Điểm hồi kỹ năng", icon: "perk-images/StatMods/StatModsCDRScalingIcon.png", longDesc: "+8 Điểm hồi kỹ năng" },
+    { id: "5008", name: "Sức mạnh thích ứng", icon: "perk-images/StatMods/StatModsAdaptiveForceIcon.png", longDesc: "+9 Sức Mạnh Thích Ứng" },
+    { id: "5009", name: "Sức mạnh thích ứng", icon: "perk-images/StatMods/StatModsAdaptiveForceIcon.png", longDesc: "+9 Sức Mạnh Thích Ứng" },
+  ];
+  function randomStats() {
+    const statRows = [
+      ["5008", "5001", "5007"], // hàng 1
+      ["5009", "5002", "5005"], // hàng 2
+      ["5004", "5003", "5006"], // hàng 3
+    ];
+    return statRows.map(row => {
+      const options = statOptions.filter(opt => row.includes(opt.id));
+      return getRandom(options);
+    });
+  }
   function randomSpells() {
     if (spells.length < 2) return [];
     let first = getRandom(spells);
     let second = getRandom(spells);
     while (second.id === first.id) second = getRandom(spells);
-    return [first, second]; // ✅ Giữ nguyên object, không destructure
+    return [first, second];
   }
 
   function randomRunes() {
@@ -76,8 +97,9 @@ export default function App() {
     while (secondary.id === primary.id) secondary = getRandom(runes);
 
     const keystone = getRandom(primary.slots[0].runes);
-    const minors = primary.slots.slice(1).map((slot) => getRandom(slot.runes));
-    const subs = secondary.slots.slice(1, 3).map((slot) => getRandom(slot.runes));
+    const minors = primary.slots.slice(1).map(slot => getRandom(slot.runes));
+    const subs = secondary.slots.slice(1, 3).map(slot => getRandom(slot.runes));
+    const stats = randomStats();
 
     return {
       primary: {
@@ -91,18 +113,20 @@ export default function App() {
         icon: `https://ddragon.leagueoflegends.com/cdn/img/${secondary.icon}`,
         minors: subs,
       },
+      stats,
     };
   }
 
   function randomize() {
     if (!champions.length || !runes.length || !spells.length) return;
-    setIsRolling(true);
 
+    setIsRolling(true);
     const duration = Math.random() * 1000 + 2000;
+
     const interval = setInterval(() => {
       setChampion(getRandom(champions));
-      setRuneSet(randomRunes());
       setSpellPair(randomSpells());
+      setRuneSet(randomRunes());
     }, 100);
 
     setTimeout(() => {

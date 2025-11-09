@@ -74,15 +74,38 @@ export default function RuneDisplay({ runeSet }) {
           </div>
         </div>
 
-        {/* Nhánh phụ */}
-        <div className="flex-[0.4] flex flex-col items-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
+        {/* ===== NHÁNH PHỤ + STAT ===== */}
+        <div className="flex-[0.4] flex-col items-center">
+          {/* Nhánh phụ */}
+          <div className="flex items-center justify-center gap-2 mb-3">
             <img src={secondary.icon} alt={secondary.name} className="w-6 h-6" />
             <span className="font-medium text-sm">{secondary.name}</span>
           </div>
-          <div className="flex gap-2 justify-center flex-wrap">
+
+          <div className="flex gap-2 justify-center flex-wrap mb-4">
             {secondary.minors.map((r) => (
               <RuneIcon key={r.id} rune={r} />
+            ))}
+          </div>
+
+          {/* Stat runes (nằm dưới nhánh phụ) */}
+          <div className="mt-2 flex gap-3 justify-center flex-wrap border-t border-gray-700 pt-3">
+            {runeSet.stats?.map((stat) => (
+              <div
+                key={stat.id}
+                className="relative"
+                onMouseEnter={() => setHoveredRune(stat)}
+                onMouseLeave={() => setHoveredRune(null)}
+              >
+                <img
+                  src={`https://ddragon.leagueoflegends.com/cdn/img/${stat.icon}`}
+                  alt={stat.name}
+                  className="w-8 h-8 rounded-full border border-gray-600 hover:scale-110 transition-transform duration-150"
+                />
+                {hoveredRune === stat && (
+                  <Tooltip text={`<b>${stat.name}</b><br/>${stat.longDesc}`} />
+                )}
+              </div>
             ))}
           </div>
         </div>
