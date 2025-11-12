@@ -34,31 +34,41 @@ const ChampionCard = forwardRef(({ instant }, ref) => {
     fetchChampions();
   }, []);
 
-  const randomizeChampion = () => {
-    if (!champions.length) return;
+  const randomizeChampion = (useInstant = false) => {
+    if (!champions.length) return Promise.resolve(null);
 
-    if (instant) {
-      setChampion(getRandom(champions));
-      return;
-    }
+    return new Promise((resolve) => {
+      if (useInstant) {
+        const final = getRandom(champions);
+        setChampion(final);
+        resolve(final);
+        return;
+      }
 
-    // Rolling 2-3s
-    setRolling(true);
-    const duration = Math.random() * 1000 + 2000; // 2-3s
-    const interval = setInterval(() => {
-      setChampion(getRandom(champions));
-    }, 100);
+      // Rolling animation 2–3s
+      setRolling(true);
+      const duration = Math.random() * 1000 + 1000; // 2–3s
+      const interval = setInterval(() => {
+        setChampion(getRandom(champions));
+      }, 100);
 
-    setTimeout(() => {
-      clearInterval(interval);
-      setRolling(false);
-    }, duration);
+      setTimeout(() => {
+        clearInterval(interval);
+        const final = getRandom(champions);
+        setChampion(final);
+        setRolling(false);
+        resolve(final);
+      }, duration);
+    });
   };
 
   // Cho phép App.jsx gọi random từ ngoài
   useImperativeHandle(ref, () => ({
-    randomize: (instant = false) => {
-      randomizeChampion(instant);
+    randomize: (useInstant = false) => {
+      randomizeChampion(useInstant);
+    },
+    randomizeSequential: (useInstant = false) => {
+      return randomizeChampion(useInstant);
     }
   }));
 
@@ -74,11 +84,15 @@ const ChampionCard = forwardRef(({ instant }, ref) => {
       <div className="flex justify-between w-full mb-3 items-center">
         <h2 className="text-lg font-bold text-center flex-1">Tướng</h2>
         <motion.button
-          onClick={randomizeChampion}
-          whileTap={{ rotate: 180 }}
-          className="p-2 bg-blue-500 rounded-full text-white text-lg flex items-center justify-center"
+          onClick={() => randomizeChampion(instant)}
+          whileTap={{ rotate: 100 }}
+          className="p-2 rounded-full flex items-center justify-center"
         >
-          <FaSyncAlt />
+          <img
+            src="/icon/util/Reroll.png"
+            alt="reroll"
+            className="w-8 h-8 object-contain"
+          />
         </motion.button>
       </div>
 
@@ -97,7 +111,9 @@ const ChampionCard = forwardRef(({ instant }, ref) => {
           <div className="flex justify-center"><p className="text-lg font-semibold">{champion.name}</p></div>
         </>
       ) : (
-        <p>Chưa chọn tướng</p>
+        <div className="flex gap-4 justify-around">
+          <p>Chưa chọn tướng</p>
+        </div>
       )}
     </div>
   );

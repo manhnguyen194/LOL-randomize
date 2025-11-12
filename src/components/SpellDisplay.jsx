@@ -1,29 +1,67 @@
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { motion } from "framer-motion";
 import { FaSyncAlt } from "react-icons/fa";
 
-function Tooltip({ spell }) {
-  if (!spell) return null;
+// 🧠 Tooltip tự động tính vị trí hiển thị (trên / dưới)
+function Tooltip({ spell, parentRef }) {
+  if (!spell || !parentRef?.current) return null;
+
+  const rect = parentRef.current.getBoundingClientRect();
+  const spaceAbove = rect.top;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const showAbove = spaceAbove > spaceBelow; // nếu phía trên rộng hơn, hiển thị ở trên
+
+  const positionClass = showAbove ? "bottom-full mb-1" : "top-full mt-1";
 
   return (
-    <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 w-64 bg-gray-900 text-white text-xs p-3 rounded-lg shadow-lg z-50">
+    <div
+      className={`absolute ${positionClass} left-1/2 transform -translate-x-1/2 w-72 bg-gray-900 text-white text-xs p-3 rounded-lg shadow-lg z-50 overflow-y-auto max-h-64`}
+      style={{ maxWidth: "90vw", wordWrap: "break-word" }}
+    >
       <div
         dangerouslySetInnerHTML={{
-          __html: `<b>${spell.name}</b><br/>${spell.description || spell.tooltip || "No description available."}`,
+          __html: `
+            <b>${spell.name}</b><br/>
+            ${spell.description || spell.tooltip || "No description available."}<br/><br/>
+            <span>Hồi chiêu: ${spell.cooldown || "?"} giây</span>
+          `,
         }}
       />
     </div>
   );
 }
 
-const SpellDisplay = forwardRef(({ instant }, ref) => {
+// 🧩 Component con hiển thị từng ô phép
+function SpellSlot({ spell, hoveredId, setHoveredId }) {
+  const ref = useRef(null);
+  return (
+    <div
+      ref={ref}
+      className="relative flex flex-col flex-[0.5] items-center group"
+      onMouseEnter={() => setHoveredId(spell.id)}
+      onMouseLeave={() => setHoveredId(null)}
+    >
+      <img
+        src={spell.image}
+        alt={spell.name}
+        className="w-14 h-14 rounded-md border border-gray-700 hover:scale-110 transition-transform duration-150"
+      />
+      <p className="text-sm mt-1 text-center">{spell.name}</p>
+      {hoveredId === spell.id && <Tooltip spell={spell} parentRef={ref} />}
+    </div>
+  );
+}
+
+const SpellDisplay = forwardRef(({ instant, onSmiteChange, mode }, ref) => {
   const [spells, setSpells] = useState([]);
   const [selectedSpells, setSelectedSpells] = useState([]);
   const [hoveredId, setHoveredId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rolling, setRolling] = useState(false);
 
-   // Fetch spells từ DDragon
+  const getRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  // 🧩 Fetch danh sách phép từ DDragon
   useEffect(() => {
     async function fetchSpells() {
       try {
@@ -34,12 +72,13 @@ const SpellDisplay = forwardRef(({ instant }, ref) => {
         );
         const data = await spellRes.json();
         const list = Object.values(data.data)
-          .filter(s => s.modes.includes("CLASSIC"))
-          .map(s => ({
+          .filter((s) => s.modes.includes("CLASSIC"))
+          .map((s) => ({
             id: s.id,
             name: s.name,
             description: s.description,
             tooltip: s.tooltip,
+            cooldown: s.cooldownBurn,
             image: `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/img/spell/${s.image.full}`,
           }));
         setSpells(list);
@@ -52,39 +91,94 @@ const SpellDisplay = forwardRef(({ instant }, ref) => {
     fetchSpells();
   }, []);
 
-  const randomizeSpells = () => {
-    if (spells.length < 2) return;
+  const checkHasSmite = (pair) =>
+    pair?.some(
+      (s) =>
+        s.id === "SummonerSmite" ||
+        s.name.toLowerCase().includes("trừng phạt") ||
+        s.name.toLowerCase().includes("smite")
+    );
+
+  const randomizeSpellsCore = (useInstant = false) => {
+    const smitePool = spells.filter(
+      (s) =>
+        s.id === "SummonerSmite" ||
+        s.name.toLowerCase().includes("trừng phạt") ||
+        s.name.toLowerCase().includes("smite")
+    );
+    const nonSmitePool = spells.filter(
+      (s) =>
+        s.id !== "SummonerSmite" &&
+        !s.name.toLowerCase().includes("trừng phạt") &&
+        !s.name.toLowerCase().includes("smite")
+    );
 
     const getRandomPair = () => {
-      let first = spells[Math.floor(Math.random() * spells.length)];
+      if (mode === "jungle") {
+        const smite = getRandom(smitePool);
+        const other = getRandom(nonSmitePool);
+        return Math.random() > 0.5 ? [smite, other] : [other, smite];
+      }
+
+      if (mode === "lane" || mode === "support") {
+        const first = getRandom(nonSmitePool);
+        let second;
+        do {
+          second = getRandom(nonSmitePool);
+        } while (second.id === first.id);
+        return [first, second];
+      }
+
+      // mode === "all"
+      const pool = [...spells];
+      const first = getRandom(pool);
       let second;
       do {
-        second = spells[Math.floor(Math.random() * spells.length)];
+        second = getRandom(pool);
       } while (second.id === first.id);
       return [first, second];
     };
 
-    if (instant) {
-      setSelectedSpells(getRandomPair());
-      return;
-    }
+    return new Promise((resolve) => {
+      if (useInstant) {
+        const pair = getRandomPair();
+        setSelectedSpells(pair);
+        const hasSmite = checkHasSmite(pair);
+        if (onSmiteChange) onSmiteChange(hasSmite);
+        resolve(pair);
+        return;
+      }
 
-    // Rolling animation 2-3s
-    setRolling(true);
-    const duration = Math.random() * 1000 + 2000; // 2-3s
-    const interval = setInterval(() => {
-      setSelectedSpells(getRandomPair());
-    }, 100);
+      // Hiệu ứng roll
+      setRolling(true);
+      const duration = Math.random() * 1000 + 1000;
+      const interval = setInterval(() => {
+        setSelectedSpells(getRandomPair());
+      }, 100);
 
-    setTimeout(() => {
-      clearInterval(interval);
-      setRolling(false);
-    }, duration);
+      setTimeout(() => {
+        clearInterval(interval);
+        const final = getRandomPair();
+        setSelectedSpells(final);
+        setRolling(false);
+        const hasSmite = checkHasSmite(final);
+        if (onSmiteChange) onSmiteChange(hasSmite);
+        resolve(final);
+      }, duration);
+    });
   };
+
+  const randomizeSpells = () => {
+    randomizeSpellsCore(instant).catch(console.error);
+  };
+
   useImperativeHandle(ref, () => ({
-    randomize: (instant = false) => {
-      randomizeSpells(instant);
-    }
+    randomize: (useInstant = false) => {
+      randomizeSpellsCore(useInstant);
+    },
+    randomizeSequential: (useInstant = false) => {
+      return randomizeSpellsCore(useInstant);
+    },
   }));
 
   if (loading)
@@ -96,36 +190,54 @@ const SpellDisplay = forwardRef(({ instant }, ref) => {
 
   return (
     <div className="bg-gray-800 p-4 rounded-2xl shadow-lg flex-[0.6] flex-col items-center">
-      <div className="flex gap-4 justify-center mb-4">
-        <p className="text-lg font-bold">Phép bổ trợ</p>
+      {/* Header + nút roll */}
+      <div className="flex justify-between w-full mb-3 items-center">
+        <p className="text-lg font-bold text-center flex-1">Phép bổ trợ</p>
         <motion.button
           onClick={randomizeSpells}
-          whileTap={{ rotate: 180 }}
-          className="p-2 bg-blue-500 rounded-full text-white text-lg flex items-center justify-center"
+          whileTap={{ rotate: 100 }}
+          className="p-2 rounded-full flex items-center justify-center"
         >
-          <FaSyncAlt />
+          <img
+            src="/icon/util/Reroll.png"
+            alt="reroll"
+            className="w-8 h-8 object-contain"
+          />
         </motion.button>
+        {/* Hiển thị mode hiện tại
+        <span
+          className={`px-3 py-1 rounded-lg text-sm font-semibold text-white ${
+            mode === "jungle"
+              ? "bg-green-600"
+              : mode === "lane"
+              ? "bg-orange-500"
+              : mode === "support"
+              ? "bg-pink-500"
+              : "bg-purple-500"
+          }`}
+        >
+          {mode === "jungle"
+            ? "Đi rừng"
+            : mode === "lane"
+            ? "Đi đường"
+            : mode === "support"
+            ? "Hỗ trợ"
+            : "Tất cả"}
+        </span> */}
       </div>
 
-      <div className="flex gap-4 justify-around">
+      {/* Khu hiển thị phép */}
+      <div className="flex gap-4 justify-around relative overflow-visible">
         {selectedSpells.length === 0 ? (
-          <p>Chưa chọn phép</p>
+          <p className="text-white">Chưa chọn phép</p>
         ) : (
-          selectedSpells.map(s => (
-            <div
+          selectedSpells.map((s) => (
+            <SpellSlot
               key={s.id}
-              className="relative flex flex-col items-center group"
-              onMouseEnter={() => setHoveredId(s.id)}
-              onMouseLeave={() => setHoveredId(null)}
-            >
-              <img
-                src={s.image}
-                alt={s.name}
-                className="w-14 h-14 rounded-md border border-gray-700 hover:scale-110 transition-transform duration-150"
-              />
-              <p className="text-sm mt-1">{s.name}</p>
-              {hoveredId === s.id && <Tooltip spell={s} />}
-            </div>
+              spell={s}
+              hoveredId={hoveredId}
+              setHoveredId={setHoveredId}
+            />
           ))
         )}
       </div>
