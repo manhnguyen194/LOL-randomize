@@ -1,21 +1,23 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { motion } from "framer-motion";
-import { FaSyncAlt } from "react-icons/fa";
+import useSmartTooltipPosition from "@/utils/useSmartTooltipPosition";
 
-// 🧩 Tooltip tự động định vị
-function Tooltip({ rune, parentRef }) {
+function Tooltip({ rune, parentRef, onMouseEnter, onMouseLeave }) {
   if (!rune || !parentRef?.current) return null;
-
-  const rect = parentRef.current.getBoundingClientRect();
-  const spaceAbove = rect.top;
-  const spaceBelow = window.innerHeight - rect.bottom;
-  const showAbove = spaceAbove > spaceBelow;
-  const positionClass = showAbove ? "bottom-full mb-1" : "top-full mt-1";
+  const { verticalPosition, translateX } = useSmartTooltipPosition(parentRef, 288);
 
   return (
     <div
-      className={`absolute ${positionClass} left-1/2 transform -translate-x-1/2 w-72 bg-gray-900 text-white text-xs p-3 rounded-lg shadow-lg z-50 overflow-y-auto max-h-64`}
-      style={{ maxWidth: "90vw", wordWrap: "break-word" }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={`absolute ${verticalPosition} left-1/2 transform bg-gray-900 text-white text-xs p-3 rounded-lg shadow-lg z-[9999]
+        overflow-y-auto max-h-64 transition-transform duration-150`}
+      style={{
+        width: "18rem",
+        maxWidth: "90vw",
+        wordWrap: "break-word",
+        transform: `translateX(${translateX}%)`,
+      }}
     >
       <div
         dangerouslySetInnerHTML={{
@@ -26,40 +28,76 @@ function Tooltip({ rune, parentRef }) {
   );
 }
 
-// 🧩 Slot hiển thị ngọc hoặc stat có tooltip
+
 function RuneSlot({ rune, hoveredId, setHoveredId }) {
   const ref = useRef(null);
+  const timeoutRef = useRef(null);
+
+  const handleEnter = () => {
+    clearTimeout(timeoutRef.current);
+    setHoveredId(rune.id);
+  };
+
+  const handleLeave = () => {
+    timeoutRef.current = setTimeout(() => setHoveredId(null), 10);
+  };
+
   return (
     <div
       ref={ref}
       className="relative flex flex-col items-center group"
-      onMouseEnter={() => setHoveredId(rune.id)}
-      onMouseLeave={() => setHoveredId(null)}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
     >
       <img
         src={`https://ddragon.leagueoflegends.com/cdn/img/${rune.icon}`}
         alt={rune.name}
         className="w-10 h-10 rounded-full border border-gray-700 hover:scale-110 transition-transform duration-150"
       />
-      {hoveredId === rune.id && <Tooltip rune={rune} parentRef={ref} />}
+      {hoveredId === rune.id && (
+        <Tooltip
+          rune={rune}
+          parentRef={ref}
+          onMouseEnter={handleEnter}
+          onMouseLeave={handleLeave}
+        />
+      )}
     </div>
   );
 }
+
 function Rune({ rune, hoveredId, setHoveredId }) {
   const ref = useRef(null);
+  const timeoutRef = useRef(null);
+
+  const handleEnter = () => {
+    clearTimeout(timeoutRef.current);
+    setHoveredId(rune.id);
+  };
+
+  const handleLeave = () => {
+    timeoutRef.current = setTimeout(() => setHoveredId(null), 10);
+  };
   return (
     <div
       ref={ref}
       className="relative flex flex-col items-center group"
-      onMouseEnter={() => setHoveredId(rune.id)}
-      onMouseLeave={() => setHoveredId(null)}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
     >
       <img
         src={`https://ddragon.leagueoflegends.com/cdn/img/${rune.icon}`}
         alt={rune.name}
         className="w-20 h-20 hover:scale-110 transition-transform duration-150"
       />
-      {hoveredId === rune.id && <Tooltip rune={rune} parentRef={ref} />}
+      {hoveredId === rune.id && (
+        <Tooltip
+          rune={rune}
+          parentRef={ref}
+          onMouseEnter={handleEnter}
+          onMouseLeave={handleLeave}
+        />
+      )}
     </div>
   );
 }
@@ -67,19 +105,36 @@ function Rune({ rune, hoveredId, setHoveredId }) {
 // 🧩 Slot riêng cho các chỉ số cộng thêm
 function StatSlot({ stat, hoveredId, setHoveredId }) {
   const ref = useRef(null);
+  const timeoutRef = useRef(null);
+
+  const handleEnter = () => {
+    clearTimeout(timeoutRef.current);
+    setHoveredId(stat.id);
+  };
+
+  const handleLeave = () => {
+    timeoutRef.current = setTimeout(() => setHoveredId(null), 10);
+  };
   return (
     <div
       ref={ref}
       className="relative flex flex-col items-center"
-      onMouseEnter={() => setHoveredId(stat.id)}
-      onMouseLeave={() => setHoveredId(null)}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
     >
       <img
         src={`https://ddragon.leagueoflegends.com/cdn/img/${stat.icon}`}
         alt={stat.name}
         className="w-7 h-7 rounded-full border border-gray-600 hover:scale-110 transition-transform duration-150"
       />
-      {hoveredId === stat.id && <Tooltip rune={stat} parentRef={ref} />}
+      {hoveredId === stat.id && (
+        <Tooltip
+          rune={stat}
+          parentRef={ref}
+          onMouseEnter={handleEnter}
+          onMouseLeave={handleLeave}
+        />
+      )}
     </div>
   );
 }

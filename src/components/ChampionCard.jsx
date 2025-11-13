@@ -1,6 +1,5 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { motion } from "framer-motion";
-import { FaSyncAlt } from "react-icons/fa";
 
 const ChampionCard = forwardRef(({ instant }, ref) => {
   const [champions, setChampions] = useState([]);
@@ -19,10 +18,15 @@ const ChampionCard = forwardRef(({ instant }, ref) => {
           `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/vi_VN/champion.json`
         );
         const data = await champRes.json();
-        const list = Object.values(data.data).map((c) => ({
-          id: c.id,
-          name: c.name,
-          image: `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/img/champion/${c.image.full}`,
+        const list = Object.values(data.data).map((champ) => ({
+          id: champ.id,
+          name: champ.name,
+          title: champ.title,
+          image: `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/img/champion/${champ.image.full}`,
+          tags: champ.tags,
+          stats: champ.stats,
+          attackRange: champ.stats?.attackrange ?? 125,
+          rangeType: champ.stats?.attackrange > 325 ? "ranged" : "melee",
         }));
         setChampions(list);
       } catch (err) {

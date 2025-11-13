@@ -14,22 +14,25 @@ export default function App() {
   const [instant, setInstant] = useState(false);
   const [hasSmite, setHasSmite] = useState(false);
   const [isRandomizing, setIsRandomizing] = useState(false);
-  const [queueCount, setQueueCount] = useState(0);
+  const [currentChampion, setCurrentChampion] = useState(null);
+  const [testChampion, setTestChampion] = useState(null); 
+
 
   const randomAll = async () => {
     if (isRandomizing) {
-      setQueueCount((n) => n + 1);
       return;
     }
 
     setIsRandomizing(true);
     try {
       // 1️⃣ Champion
+      let champion = null;
       if (champRef.current?.randomizeSequential) {
-        await champRef.current.randomizeSequential(instant);
+        champion = await champRef.current.randomizeSequential(instant);
       } else {
-        champRef.current?.randomize(instant);
+        champion = await champRef.current.randomize(instant);
       }
+      setCurrentChampion(champion);
 
       // 2️⃣ Spell — nhận kết quả trả về, xác định có Smite hay không
       let smitePicked = false;
@@ -64,6 +67,16 @@ export default function App() {
     }
   };
 
+  const handleTestCassiopeia = () => {
+    const fakeChampion = {
+      name: "Cassiopeia",
+      attackRange: 550, // Cassiopeia là ranged
+      rangeType: "ranged",
+    };
+    setTestChampion(fakeChampion);
+    alert("✅ Test Cassiopeia đã được bật! Hãy nhấn Random All để kiểm tra.");
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-4">
       <h1 className="text-3xl font-bold mb-4">🎲 Random LOL</h1>
@@ -76,30 +89,37 @@ export default function App() {
         <div className="flex flex-row md:flex-col gap-4 items-stretch">
           <RuneDisplay ref={runeRef} instant={instant} />
           {/* vẫn truyền hasSmite xuống để hiển thị UI đúng */}
-          <ItemDisplay ref={itemRef} instant={instant} hasSmite={hasSmite} mode={mode}/>
+          <ItemDisplay ref={itemRef} instant={instant} hasSmite={hasSmite} mode={mode} champion={testChampion} />
         </div>
       </div>
+      <div className="flex justify-center gap-4 items-center w-full">
+        <button
+          onClick={randomAll}
+          disabled={isRandomizing}
+          className={`px-8 py-3 rounded-2xl text-lg font-semibold transition-all ${
+            isRandomizing
+              ? "bg-gray-500 cursor-wait"
+              : "bg-blue-500 hover:bg-blue-600"
+          }`}
+        >
+          {isRandomizing
+            ? `Randoming...`
+            : "Random All!"}
+        </button>
 
-      <button
-        onClick={randomAll}
-        disabled={isRandomizing}
-        className={`mt-6 px-8 py-3 rounded-2xl text-lg font-semibold transition-all ${
-          isRandomizing
-            ? "bg-gray-500 cursor-wait"
-            : "bg-blue-500 hover:bg-blue-600"
-        }`}
-      >
-        {isRandomizing
-          ? `Randoming...`
-          : "Random All!"}
-      </button>
-
-      <button
-        onClick={() => setInstant(!instant)}
-        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white"
-      >
-        {instant ? "Instant Mode" : "Rolling Mode"}
-      </button>
+        <button
+          onClick={() => setInstant(!instant)}
+          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white h-full"
+        >
+          {instant ? "Instant Mode" : "Rolling Mode"}
+        </button>
+        {/* <button
+          onClick={handleTestCassiopeia}
+          className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded text-white"
+        >
+          Test Cassiopeia
+        </button> */}
+      </div>
     </div>
   );
 }

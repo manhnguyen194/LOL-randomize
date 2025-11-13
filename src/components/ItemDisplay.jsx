@@ -1,31 +1,41 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { motion } from "framer-motion";
-import { FaSyncAlt } from "react-icons/fa";
+import useSmartTooltipPosition from "@/utils/useSmartTooltipPosition";
 
-function Tooltip({ item, parentRef }) {
+function Tooltip({ item, parentRef, onMouseEnter, onMouseLeave }) {
   if (!item || !parentRef?.current) return null;
 
-  const rect = parentRef.current.getBoundingClientRect();
-  const spaceAbove = rect.top;
-  const spaceBelow = window.innerHeight - rect.bottom;
-  const showAbove = spaceAbove > spaceBelow;
-  const positionClass = showAbove ? "bottom-full mb-1" : "top-full mt-1";
+  const { verticalPosition, translateX } = useSmartTooltipPosition(parentRef, 288);
 
   const gold = item.gold?.total ?? 0;
   const tags = (item.tags || []).join(", ") || "Không có tag";
+  const passives = [...(item.description?.matchAll(/<passive>(.*?)<\/passive>/g) ?? [])]
+    .map((m) => m[1]?.trim())
+    .filter(Boolean);
 
   return (
     <div
-      className={`absolute ${positionClass} left-1/2 transform -translate-x-1/2 
-        w-72 bg-gray-900 text-white text-xs p-3 rounded-lg shadow-lg z-[9999]
-        overflow-y-auto max-h-64`}
-      style={{ maxWidth: "90vw", wordWrap: "break-word" }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={`absolute ${verticalPosition} left-1/2 transform bg-gray-900 text-white text-xs p-3 rounded-lg shadow-lg z-[9999]
+        overflow-y-auto max-h-64 transition-transform duration-150`}
+      style={{
+        width: "18rem",
+        maxWidth: "90vw",
+        wordWrap: "break-word",
+        transform: `translateX(${translateX}%)`,
+      }}
     >
       <div
         dangerouslySetInnerHTML={{
           __html: `
             <b>${item.name}</b><br/>
-            ${item.description || item.plaintext || "Không có description"}<br/>
+            ${item.description || item.plaintext || "Không có mô tả"}<br/>
+            ${
+              passives.length > 0
+                ? `<b style="color:#7dd3fc;">Duy nhất (Passive):</b> ${passives.join(", ")}<br/>`
+                : ""
+            }
             <b>Gold:</b> ${gold}<br/>
             <b>Tags:</b> ${tags}
           `,
@@ -35,16 +45,26 @@ function Tooltip({ item, parentRef }) {
   );
 }
 
+
 const ItemSlot = ({ item }) => {
   const [hovered, setHovered] = useState(false);
   const ref = useRef(null);
+  const timeoutRef = useRef(null);
+  const handleMouseEnter = () => {
+    clearTimeout(timeoutRef.current);
+    setHovered(true);
+  };
 
+  const handleMouseLeave = () => {
+    // trì hoãn một chút để người dùng có thể di chuyển vào tooltip
+    timeoutRef.current = setTimeout(() => setHovered(false), 10);
+  };
   return (
     <div
       ref={ref}
       className="relative flex flex-col items-center group w-16 h-16"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {item ? (
         <img
@@ -55,12 +75,19 @@ const ItemSlot = ({ item }) => {
       ) : (
         <div className="w-16 h-16 bg-gray-700 rounded-md border border-gray-600" />
       )}
-      {hovered && item && <Tooltip item={item} parentRef={ref} />}
+      {hovered && item && (
+      <Tooltip 
+        item={item} 
+        parentRef={ref} 
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      />
+      )}
     </div>
   );
 };
 
-const ItemDisplay = forwardRef(({ instant, hasSmite, mode }, ref) => {
+const ItemDisplay = forwardRef(({ instant, hasSmite, mode, champion }, ref) => {
   const [allItems, setAllItems] = useState([]);
   const [bootsItems, setBootsItems] = useState([]);
   const [mainItemsPool, setMainItemsPool] = useState([]);
@@ -81,7 +108,32 @@ const ItemDisplay = forwardRef(({ instant, hasSmite, mode }, ref) => {
 
   const getRandom = (arr) =>
     arr && arr.length ? arr[Math.floor(Math.random() * arr.length)] : null;
+  const extractPassives = (description = "") => {
+    const matches = [...description.matchAll(/<passive>(.*?)<\/passive>/g)];
+    return matches.map((m) => m[1]?.trim()).filter(Boolean);
+  };
+  const filterItemsByRules = (items, selected, champion) => {
+    const usedIds = new Set(selected.map((i) => i?.id));
+    const usedPassives = new Set(
+      selected.flatMap((i) => extractPassives(i?.description || ""))
+    );
 
+    const isCass = champion?.name?.toLowerCase() === "cassiopeia";
+    const isMelee = champion?.attackRange && champion.attackRange <= 325;
+
+    return items.filter((item) => {
+      if (!item) return false;
+      if (usedIds.has(item.id)) return false;
+
+      const passives = extractPassives(item.description);
+      if (passives.some((p) => usedPassives.has(p))) return false;
+
+      if (isCass && item.tags.includes("Boots")) return false;
+      if (isMelee && item.id === "3085") return false; // Cuồng Cung Runaan
+
+      return true;
+    });
+  };
   useEffect(() => {
     async function fetchItems() {
       try {
@@ -114,7 +166,7 @@ const ItemDisplay = forwardRef(({ instant, hasSmite, mode }, ref) => {
           const maps = it.maps || {};
           const idNum = Number(it.id);
           const allowedOnRift = maps["11"] === true;
-          const isOtherMapCopy = idNum > 9999 || String(it.id).startsWith("32") || String(it.id).startsWith("33");
+          const isOtherMapCopy = idNum > 9999;
           return it.inStore && (it.gold?.purchasable ?? false) && allowedOnRift && !isOtherMapCopy;
         });
 
@@ -175,7 +227,7 @@ const ItemDisplay = forwardRef(({ instant, hasSmite, mode }, ref) => {
         setAllItems(riftOnly);
         setBootsItems(boots);
         setMainItemsPool(mains);
-        setStarterSets({ jungle, support, lane, start });
+        setStarterSets({ jungle, support, lane, starter: start  });
       } catch (e) {
         console.error("ItemDisplay.fetchItems error:", e);
       } finally {
@@ -186,37 +238,60 @@ const ItemDisplay = forwardRef(({ instant, hasSmite, mode }, ref) => {
   }, []);
 
   const getStarterPool = () => {
-    if (mode === "jungle" || hasSmite) return starterSets.jungle;
-    if (mode === "support") return starterSets.support;
-    if (mode === "lane") return starterSets.lane;
-    return starterSets.start;
+    if (!starterSets) return [];
+    if (mode === "jungle" || hasSmite) return starterSets.jungle || [];
+    if (mode === "support") return starterSets.support || [];
+    if (mode === "lane") return starterSets.lane || [];
+    return starterSets.starter || [];
   };
 
-  const randomMainItems = () => {
+  const randomMainItems = (champion) => {
     const pool = [...mainItemsPool].sort(() => Math.random() - 0.5);
     const selected = [];
     const usedGroups = new Set();
+    const usedPassives = new Set();
+
     for (const item of pool) {
       if (selected.length >= 6) break;
       if (!item) continue;
+
+      const passives = extractPassives(item.description);
       const group = item.groupId;
+
       if (group && usedGroups.has(group)) continue;
+      if (passives.some((p) => usedPassives.has(p))) continue;
+
+      // ⚠️ Loại bỏ Cuồng Cung cho melee
+      if (champion?.attackRange <= 325 && item.id === "3085") continue;
+
       selected.push(item);
       if (group) usedGroups.add(group);
+      passives.forEach((p) => usedPassives.add(p));
     }
+
     while (selected.length < 6) selected.push(null);
     return selected;
   };
+  const getRandomItemSet = () => {
+    const start = getRandom(getStarterPool());
+    let boots = getRandom(bootsItems);
+    let main = randomMainItems(champion);
+
+    // Cassiopeia → thay giày bằng item hợp lệ
+    if (champion?.name?.toLowerCase() === "cassiopeia") {
+      const filtered = filterItemsByRules(mainItemsPool, main, champion);
+      boots = getRandom(filtered);
+    }
+    // ⚙️ Nếu tướng tầm gần → lọc bỏ Cuồng Cung Runaan khỏi main pool
+        const isMelee = champion?.attackRange && champion.attackRange <= 325;
+        if (isMelee) {
+          main = main.filter(i => i?.id !== "3085"); // 3085 là Cuồng Cung
+        }
+
+    return { start, boots, main };
+  };
 
   const randomizeItems = (useInstant = false) => {
-    const getRandomItemSet = () => {
-      const start = getRandom(getStarterPool());
-      const boots = getRandom(bootsItems);
-      const main = randomMainItems();
-      
-      return { start, boots, main };
-    };
-
     if (useInstant) {
       const final = getRandomItemSet();
       setSelectedItems(final);
@@ -253,7 +328,7 @@ const ItemDisplay = forwardRef(({ instant, hasSmite, mode }, ref) => {
   return (
     <div className="bg-gray-800 p-4 rounded-2xl shadow-lg flex flex-col items-center w-full">
       <div className="flex justify-between w-full mb-3 items-center">
-        <p className="text-lg font-bold text-center flex-1">Đồ</p>
+        <p className="text-lg font-bold text-center flex-1">Trang Bị</p>
 
         <motion.button
           onClick={() => randomizeItems(instant)}
@@ -268,7 +343,7 @@ const ItemDisplay = forwardRef(({ instant, hasSmite, mode }, ref) => {
         </motion.button>
       </div>
 
-      <div className="flex justify-around w-full gap-2 mb-2 relative overflow-visible">
+      <div className="flex justify-center md:justify-around w-full gap-2 mb-2 relative overflow-visible">
         <ItemSlot item={selectedItems.start} />
         <ItemSlot item={selectedItems.boots} />
       </div>

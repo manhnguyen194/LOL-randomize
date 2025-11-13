@@ -1,29 +1,30 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { motion } from "framer-motion";
-import { FaSyncAlt } from "react-icons/fa";
+import useSmartTooltipPosition from "@/utils/useSmartTooltipPosition";
 
-// 🧠 Tooltip tự động tính vị trí hiển thị (trên / dưới)
-function Tooltip({ spell, parentRef }) {
+function Tooltip({ spell, parentRef, onMouseEnter, onMouseLeave }) {
   if (!spell || !parentRef?.current) return null;
-
-  const rect = parentRef.current.getBoundingClientRect();
-  const spaceAbove = rect.top;
-  const spaceBelow = window.innerHeight - rect.bottom;
-  const showAbove = spaceAbove > spaceBelow; // nếu phía trên rộng hơn, hiển thị ở trên
-
-  const positionClass = showAbove ? "bottom-full mb-1" : "top-full mt-1";
+  const { verticalPosition, translateX } = useSmartTooltipPosition(parentRef, 288);
 
   return (
     <div
-      className={`absolute ${positionClass} left-1/2 transform -translate-x-1/2 w-72 bg-gray-900 text-white text-xs p-3 rounded-lg shadow-lg z-50 overflow-y-auto max-h-64`}
-      style={{ maxWidth: "90vw", wordWrap: "break-word" }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={`absolute ${verticalPosition} left-1/2 transform bg-gray-900 text-white text-xs p-3 rounded-lg shadow-lg z-[9999]
+        overflow-y-auto max-h-64 transition-transform duration-150`}
+      style={{
+        width: "18rem",
+        maxWidth: "90vw",
+        wordWrap: "break-word",
+        transform: `translateX(${translateX}%)`,
+      }}
     >
       <div
         dangerouslySetInnerHTML={{
           __html: `
             <b>${spell.name}</b><br/>
-            ${spell.description || spell.tooltip || "No description available."}<br/><br/>
-            <span>Hồi chiêu: ${spell.cooldown || "?"} giây</span>
+            ${spell.description || spell.tooltip || "Không có mô tả."}<br/><br/>
+            <span>⏱️ Hồi chiêu: ${spell.cooldown || "?"} giây</span>
           `,
         }}
       />
@@ -31,15 +32,23 @@ function Tooltip({ spell, parentRef }) {
   );
 }
 
+
 // 🧩 Component con hiển thị từng ô phép
 function SpellSlot({ spell, hoveredId, setHoveredId }) {
   const ref = useRef(null);
+  const [hoveringTooltip, setHoveringTooltip] = useState(false);
+
+  const isHovered = hoveredId === spell.id || hoveringTooltip;
+
   return (
     <div
       ref={ref}
       className="relative flex flex-col flex-[0.5] items-center group"
       onMouseEnter={() => setHoveredId(spell.id)}
-      onMouseLeave={() => setHoveredId(null)}
+      onMouseLeave={() => {
+        // Chỉ ẩn khi không hover tooltip
+        if (!hoveringTooltip) setHoveredId(null);
+      }}
     >
       <img
         src={spell.image}
@@ -47,7 +56,18 @@ function SpellSlot({ spell, hoveredId, setHoveredId }) {
         className="w-14 h-14 rounded-md border border-gray-700 hover:scale-110 transition-transform duration-150"
       />
       <p className="text-sm mt-1 text-center">{spell.name}</p>
-      {hoveredId === spell.id && <Tooltip spell={spell} parentRef={ref} />}
+
+      {isHovered && (
+        <Tooltip
+          spell={spell}
+          parentRef={ref}
+          onMouseEnter={() => setHoveringTooltip(true)}
+          onMouseLeave={() => {
+            setHoveringTooltip(false);
+            setHoveredId(null);
+          }}
+        />
+      )}
     </div>
   );
 }
