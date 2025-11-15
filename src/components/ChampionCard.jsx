@@ -73,7 +73,8 @@ const ChampionCard = forwardRef(({ instant }, ref) => {
     },
     randomizeSequential: (useInstant = false) => {
       return randomizeChampion(useInstant);
-    }
+    },
+    getCurrent: () => champion
   }));
 
   if (loading)

@@ -199,6 +199,7 @@ const SpellDisplay = forwardRef(({ instant, onSmiteChange, mode }, ref) => {
     randomizeSequential: (useInstant = false) => {
       return randomizeSpellsCore(useInstant);
     },
+    getCurrent: () => selectedSpells
   }));
 
   if (loading)

@@ -4,6 +4,8 @@ import RuneDisplay from "./components/RuneDisplay";
 import SpellDisplay from "./components/SpellDisplay";
 import ItemDisplay from "./components/ItemDisplay";
 import LaneSelector from "./components/LaneSelector";
+import SetViewer from "./components/SetViewer";
+
 
 export default function App() {
   const champRef = useRef();
@@ -16,6 +18,9 @@ export default function App() {
   const [isRandomizing, setIsRandomizing] = useState(false);
   const [currentChampion, setCurrentChampion] = useState(null);
   const [testChampion, setTestChampion] = useState(null); 
+  const [savedSets, setSavedSets] = useState([]);
+  const [viewingSet, setViewingSet] = useState(null);
+
 
 
   const randomAll = async () => {
@@ -66,16 +71,35 @@ export default function App() {
       setIsRandomizing(false);
     }
   };
+  const saveCurrentSet = () => {
+    const champion = currentChampion;
 
-  const handleTestCassiopeia = () => {
-    const fakeChampion = {
-      name: "Cassiopeia",
-      attackRange: 550, // Cassiopeia là ranged
-      rangeType: "ranged",
+    // Items: luôn là array
+    const items = itemRef.current?.getCurrent?.() || [];
+
+    // Spells: luôn là array
+    const spells = spellRef.current?.getCurrent?.() || [];
+
+    // Runes: LUÔN là object → KHÔNG convert sang array
+    const runes = runeRef.current?.getCurrent?.() || {
+      primary: null,
+      secondary: null,
+      stats: []
     };
-    setTestChampion(fakeChampion);
-    alert("✅ Test Cassiopeia đã được bật! Hãy nhấn Random All để kiểm tra.");
+
+    console.log("RUNES SAVED:", runes); // <== Debug để kiểm tra
+
+    const set = {
+      id: Date.now(),
+      champion,
+      items,
+      spells,
+      runes,
+    };
+
+    setSavedSets(prev => [...prev, set]);
   };
+  const canSave = currentChampion && !isRandomizing;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-4">
@@ -113,13 +137,50 @@ export default function App() {
         >
           {instant ? "Instant Mode" : "Rolling Mode"}
         </button>
-        {/* <button
-          onClick={handleTestCassiopeia}
-          className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded text-white"
+        <button
+          onClick={saveCurrentSet}
+          disabled={!canSave}
+          className={`
+            px-6 py-3 rounded-xl text-white transition-all
+            ${!canSave 
+              ? "bg-gray-600 cursor-not-allowed"
+              : "bg-green-600 hover:bg-green-700"
+            }
+          `}
         >
-          Test Cassiopeia
-        </button> */}
+          Save Set
+        </button>
       </div>
+
+      {/* SAVED SET LIST */}
+      <div className="w-full max-w-4xl bg-gray-900 p-4 rounded-xl mt-6">
+        <h2 className="text-xl font-bold mb-3">Saved Sets</h2>
+
+        {savedSets.length === 0 && (
+          <p className="text-gray-400">No saved sets yet.</p>
+        )}
+
+        <div className="flex flex-col gap-3">
+          {savedSets.map(set => (
+            <div key={set.id} className="flex justify-between bg-gray-800 p-3 rounded-md">
+              <span>{set.champion.name}</span>
+              <div className="flex gap-2">
+                <button onClick={() => setViewingSet(set)} className="px-3 py-1 bg-blue-600 rounded">View</button>
+                <button
+                  onClick={() => setSavedSets(prev => prev.filter(s => s.id !== set.id))}
+                  className="px-3 py-1 bg-red-600 rounded"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {viewingSet && (
+        <SetViewer savedSet={viewingSet} onClose={() => setViewingSet(null)} />
+      )}
     </div>
   );
 }

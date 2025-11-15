@@ -230,6 +230,46 @@ const RuneDisplay = forwardRef(({ instant }, ref) => {
   useImperativeHandle(ref, () => ({
     randomize: (useInstant = false) => randomizeRunes(useInstant),
     randomizeSequential: (useInstant = false) => randomizeRunes(useInstant),
+    getCurrent: () => {
+      if (!runeSet) return null;
+
+      return {
+        primary: {
+          pathId: runeSet.primary.id,
+          icon: runeSet.primary.icon,
+          keystone: {
+            id: runeSet.primary.keystone.id,
+            icon: runeSet.primary.keystone.icon,
+            name: runeSet.primary.keystone.name,
+            longDesc: runeSet.primary.keystone.longDesc,
+          },
+          minors: runeSet.primary.minors.map(r => ({
+            id: r.id,
+            icon: r.icon,
+            name: r.name,
+            longDesc: r.longDesc,
+          }))
+        },
+
+        secondary: {
+          pathId: runeSet.secondary.id,
+          icon: runeSet.secondary.icon,
+          minors: runeSet.secondary.minors.map(r => ({
+            id: r.id,
+            icon: r.icon,
+            name: r.name,
+            longDesc: r.longDesc,
+          }))
+        },
+
+        stats: runeSet.stats.map(s => ({
+          id: s.id,
+          icon: s.icon,
+          name: s.name,
+          longDesc: s.longDesc,
+        }))
+      };
+    }
   }));
 
   if (loading)

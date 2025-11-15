@@ -315,6 +315,13 @@ const ItemDisplay = forwardRef(({ instant, hasSmite, mode, champion }, ref) => {
   useImperativeHandle(ref, () => ({
     randomize: (useInstant = false) => randomizeItems(useInstant),
     randomizeSequential: (useInstant = false) => randomizeItems(useInstant),
+    getCurrent: () => {
+      return [
+        selectedItems.start,
+        selectedItems.boots,
+        ...selectedItems.main
+      ];
+    }
   }));
 
   if (loading) {
